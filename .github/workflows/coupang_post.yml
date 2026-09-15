@@ -1,0 +1,54 @@
+name: 쿠팡 제휴 스레드 자동 게시 (하루 2회)
+
+on:
+  schedule:
+    - cron: "30 2 * * *"   # 매일 11:30 KST
+    - cron: "0 9 * * *"    # 매일 18:00 KST
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 파이썬 설치
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 한글 폰트 설치 (나눔고딕)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-nanum
+
+      - name: 의존 패키지 설치
+        run: pip install -r requirements.txt
+
+      - name: 1단계 - 상품 선정 + 링크/이미지/문구 생성
+        working-directory: scripts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          COUPANG_ACCESS_KEY: ${{ secrets.COUPANG_ACCESS_KEY }}
+          COUPANG_SECRET_KEY: ${{ secrets.COUPANG_SECRET_KEY }}
+          COUPANG_SUBID: ${{ secrets.COUPANG_SUBID }}
+        run: python generate_coupang_post_prepare.py
+
+      - name: 2단계 - 생성된 이미지/기록 커밋 & 푸시
+        run: |
+          git config user.name "milkyway-bot"
+          git config user.email "milkyway-bot@users.noreply.github.com"
+          git add data/used_topics.json output/
+          git commit -m "chore: 쿠팡 제휴 스레드 자동 생성 $(date -u +'%Y-%m-%d %H:%M UTC')" || echo "변경 사항 없음"
+          git push
+
+      - name: 3단계 - Threads에 게시
+        working-directory: scripts
+        env:
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_BRANCH: ${{ github.ref_name }}
+        run: python generate_coupang_post_publish.py
