@@ -25,7 +25,7 @@ def main():
 
     print(f"[선정 상품] {product_name} / {price}")
     print(f"[디버그] product_url = {product_url}")
-    deeplink = coupang_api.create_deeplink(product_url)
+    deeplink = product_url
     print(f"[딥링크] {deeplink}")
 
     body_text = claude_client.generate_coupang_post(product_name, price, category)
